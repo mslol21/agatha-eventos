@@ -3,13 +3,36 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { checkAdminSession, setAdminSession, getStoredLeads, getStoredProducts, QuoteLead, CatalogProduct } from "@/lib/store";
-import { Users, ShoppingBag, TrendingUp, CheckCircle, Clock, Sparkles, LogOut, ArrowRight, Layers, FileText } from "lucide-react";
+import {
+  checkAdminSession,
+  setAdminSession,
+  getStoredLeads,
+  getStoredProducts,
+  getCompanySettings,
+  QuoteLead,
+  CatalogProduct,
+  CompanySettings,
+} from "@/lib/store";
+import {
+  Users,
+  ShoppingBag,
+  TrendingUp,
+  CheckCircle,
+  Clock,
+  Sparkles,
+  LogOut,
+  ArrowRight,
+  Layers,
+  FileText,
+  Settings,
+  MessageCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 export default function AdminDashboardPage() {
   const [leads, setLeads] = useState<QuoteLead[]>([]);
   const [products, setProducts] = useState<CatalogProduct[]>([]);
+  const [settings, setSettings] = useState<CompanySettings | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -19,6 +42,7 @@ export default function AdminDashboardPage() {
     }
     setLeads(getStoredLeads());
     setProducts(getStoredProducts());
+    setSettings(getCompanySettings());
   }, [router]);
 
   const handleLogout = () => {
@@ -57,6 +81,14 @@ export default function AdminDashboardPage() {
             >
               <Layers className="w-4 h-4 text-sky-500" />
               <span>Produtos ({products.length})</span>
+            </Link>
+
+            <Link
+              href="/admin/configuracoes"
+              className="px-4 py-2 rounded-xl bg-white border border-slate-200 text-xs font-bold text-slate-700 hover:bg-slate-100 transition-all flex items-center gap-1.5"
+            >
+              <Settings className="w-4 h-4 text-amber-500" />
+              <span>Configurações</span>
             </Link>
 
             <button

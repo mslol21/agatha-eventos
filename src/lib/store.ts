@@ -1,11 +1,12 @@
 "use client";
 
-import { SERVICES_DATA, ServiceItem } from "@/data/services";
+import { ServiceItem } from "@/data/services";
 
 export interface CatalogProduct extends ServiceItem {
   active: boolean;
   category: "doces" | "salgados" | "combos" | "personalizados";
   estimatedPricePerGuest?: number; // e.g. R$ 12 / pessoa
+  minGuests?: number; // e.g. 30 convidados
 }
 
 export interface QuoteLead {
@@ -13,18 +14,39 @@ export interface QuoteLead {
   createdAt: string;
   name: string;
   whatsapp: string;
+  email?: string;
   eventType: string;
   eventDate: string;
+  eventTime?: string;
+  durationHours?: string;
   city: string;
+  address?: string;
   guestCount: string;
   services: string[];
   message?: string;
   status: "novo" | "em_contato" | "enviado" | "fechado";
 }
 
-const PRODUCTS_STORAGE_KEY = "agatha_products_v1";
-const LEADS_STORAGE_KEY = "agatha_leads_v1";
+export interface CompanySettings {
+  whatsappNumber: string;
+  instagramHandle: string;
+  instagramUrl: string;
+  baseLocation: string;
+  adminPin: string;
+}
+
+const PRODUCTS_STORAGE_KEY = "agatha_products_v2";
+const LEADS_STORAGE_KEY = "agatha_leads_v2";
+const SETTINGS_STORAGE_KEY = "agatha_company_settings_v1";
 const AUTH_STORAGE_KEY = "agatha_admin_session";
+
+export const DEFAULT_SETTINGS: CompanySettings = {
+  whatsappNumber: "5511978447785",
+  instagramHandle: "@agathaeventos2024",
+  instagramUrl: "https://www.instagram.com/agathaeventos2024/",
+  baseLocation: "Jardim Anália Franco — São Paulo/SP",
+  adminPin: "123456",
+};
 
 export const INITIAL_PRODUCTS: CatalogProduct[] = [
   {
@@ -44,6 +66,7 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     active: true,
     category: "salgados",
     estimatedPricePerGuest: 10,
+    minGuests: 30,
   },
   {
     id: "crepe-suico",
@@ -61,6 +84,7 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     active: true,
     category: "salgados",
     estimatedPricePerGuest: 15,
+    minGuests: 50,
   },
   {
     id: "algodao-doce",
@@ -78,6 +102,7 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     active: true,
     category: "doces",
     estimatedPricePerGuest: 8,
+    minGuests: 30,
   },
   {
     id: "hot-dog",
@@ -95,6 +120,7 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     active: true,
     category: "salgados",
     estimatedPricePerGuest: 14,
+    minGuests: 30,
   },
   {
     id: "brigadeiro-colher",
@@ -112,6 +138,7 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     active: true,
     category: "doces",
     estimatedPricePerGuest: 12,
+    minGuests: 30,
   },
   {
     id: "experiencias-personalizadas",
@@ -129,6 +156,7 @@ export const INITIAL_PRODUCTS: CatalogProduct[] = [
     active: true,
     category: "personalizados",
     estimatedPricePerGuest: 18,
+    minGuests: 30,
   }
 ];
 
@@ -138,9 +166,13 @@ export const INITIAL_LEADS: QuoteLead[] = [
     createdAt: "2026-08-07T14:30:00Z",
     name: "Camila Fernandes",
     whatsapp: "(11) 98877-6655",
+    email: "camila@email.com",
     eventType: "Aniversário Infantil",
     eventDate: "2026-09-12",
-    city: "São Paulo (Tatuapé)",
+    eventTime: "15:00",
+    durationHours: "4 horas",
+    city: "São Paulo - Anália Franco",
+    address: "Rua Emília Marengo, 400 - Tatuapé",
     guestCount: "60 pessoas",
     services: ["Pipoca Gourmet", "Algodão Doce"],
     message: "Gostaria de saber o valor para 4 horas de festa no período da tarde.",
@@ -151,9 +183,13 @@ export const INITIAL_LEADS: QuoteLead[] = [
     createdAt: "2026-08-06T10:15:00Z",
     name: "Marcelo Oliveira - Tech Corp",
     whatsapp: "(11) 97766-5544",
+    email: "marcelo@techcorp.com.br",
     eventType: "Corporativo",
     eventDate: "2026-10-05",
-    city: "São Paulo (Itaim Bibi)",
+    eventTime: "11:00",
+    durationHours: "5 horas",
+    city: "Barueri / Alphaville",
+    address: "Alameda Rio Negro, 500",
     guestCount: "150 pessoas",
     services: ["Crepe Suíço", "Hot Dog Gourmet"],
     message: "Necessitamos de emissão de Nota Fiscal Faturada para 30 dias.",
@@ -164,9 +200,13 @@ export const INITIAL_LEADS: QuoteLead[] = [
     createdAt: "2026-08-05T18:45:00Z",
     name: "Juliana & Roberto",
     whatsapp: "(11) 96655-4433",
+    email: "juliana.casamento@email.com",
     eventType: "Casamento",
     eventDate: "2026-11-20",
-    city: "Santo André / ABC",
+    eventTime: "23:30",
+    durationHours: "4 horas",
+    city: "Santo André - SP",
+    address: "Buffet Mansão das Flores",
     guestCount: "200 pessoas",
     services: ["Brigadeiro de Colher", "Pipoca Gourmet"],
     message: "Para servir na madrugada da pista de dança a partir da meia-noite.",
@@ -174,7 +214,27 @@ export const INITIAL_LEADS: QuoteLead[] = [
   }
 ];
 
-// Product Store Helpers
+// Settings Helpers
+export function getCompanySettings(): CompanySettings {
+  if (typeof window === "undefined") return DEFAULT_SETTINGS;
+  try {
+    const data = localStorage.getItem(SETTINGS_STORAGE_KEY);
+    if (!data) {
+      localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(DEFAULT_SETTINGS));
+      return DEFAULT_SETTINGS;
+    }
+    return JSON.parse(data);
+  } catch (e) {
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export function saveCompanySettings(settings: CompanySettings): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+}
+
+// Product Helpers
 export function getStoredProducts(): CatalogProduct[] {
   if (typeof window === "undefined") return INITIAL_PRODUCTS;
   try {
@@ -194,7 +254,30 @@ export function saveStoredProducts(products: CatalogProduct[]): void {
   localStorage.setItem(PRODUCTS_STORAGE_KEY, JSON.stringify(products));
 }
 
-// Leads Store Helpers
+export function addProduct(product: Omit<CatalogProduct, "id">): CatalogProduct {
+  const products = getStoredProducts();
+  const newProduct: CatalogProduct = {
+    ...product,
+    id: `custom-prod-${Date.now()}`,
+  };
+  const updated = [newProduct, ...products];
+  saveStoredProducts(updated);
+  return newProduct;
+}
+
+export function updateProduct(product: CatalogProduct): void {
+  const products = getStoredProducts();
+  const updated = products.map((p) => (p.id === product.id ? product : p));
+  saveStoredProducts(updated);
+}
+
+export function deleteProduct(productId: string): void {
+  const products = getStoredProducts();
+  const updated = products.filter((p) => p.id !== productId);
+  saveStoredProducts(updated);
+}
+
+// Leads Helpers
 export function getStoredLeads(): QuoteLead[] {
   if (typeof window === "undefined") return INITIAL_LEADS;
   try {
@@ -209,6 +292,11 @@ export function getStoredLeads(): QuoteLead[] {
   }
 }
 
+export function saveStoredLeads(leads: QuoteLead[]): void {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(leads));
+}
+
 export function addStoredLead(leadData: Omit<QuoteLead, "id" | "createdAt" | "status">): QuoteLead {
   const leads = getStoredLeads();
   const newLead: QuoteLead = {
@@ -218,21 +306,29 @@ export function addStoredLead(leadData: Omit<QuoteLead, "id" | "createdAt" | "st
     status: "novo",
   };
   const updated = [newLead, ...leads];
-  if (typeof window !== "undefined") {
-    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(updated));
-  }
+  saveStoredLeads(updated);
   return newLead;
+}
+
+export function updateLead(lead: QuoteLead): void {
+  const leads = getStoredLeads();
+  const updated = leads.map((l) => (l.id === lead.id ? lead : l));
+  saveStoredLeads(updated);
+}
+
+export function deleteLead(leadId: string): void {
+  const leads = getStoredLeads();
+  const updated = leads.filter((l) => l.id !== leadId);
+  saveStoredLeads(updated);
 }
 
 export function updateLeadStatus(leadId: string, status: QuoteLead["status"]): void {
   const leads = getStoredLeads();
   const updated = leads.map((l) => (l.id === leadId ? { ...l, status } : l));
-  if (typeof window !== "undefined") {
-    localStorage.setItem(LEADS_STORAGE_KEY, JSON.stringify(updated));
-  }
+  saveStoredLeads(updated);
 }
 
-// Simple Admin Auth Helper
+// Admin Auth Helper
 export function checkAdminSession(): boolean {
   if (typeof window === "undefined") return false;
   return localStorage.getItem(AUTH_STORAGE_KEY) === "true";

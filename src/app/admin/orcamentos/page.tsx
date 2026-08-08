@@ -3,15 +3,58 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { checkAdminSession, getStoredLeads, updateLeadStatus, QuoteLead } from "@/lib/store";
-import { ArrowLeft, Search, Filter, MessageCircle, Calendar, MapPin, Users, CheckCircle2 } from "lucide-react";
+import {
+  checkAdminSession,
+  getStoredLeads,
+  saveStoredLeads,
+  addStoredLead,
+  updateLead,
+  deleteLead,
+  QuoteLead,
+} from "@/lib/store";
+import {
+  ArrowLeft,
+  Search,
+  MessageCircle,
+  Calendar,
+  MapPin,
+  Users,
+  Plus,
+  Edit2,
+  Trash2,
+  X,
+  Check,
+  PhoneCall,
+  Clock,
+  User,
+} from "lucide-react";
 import { buildWhatsAppUrl } from "@/lib/whatsapp";
+import { Button } from "@/components/ui/Button";
 
 export default function AdminOrcamentosPage() {
   const [leads, setLeads] = useState<QuoteLead[]>([]);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState<string>("todos");
+  const [editingLead, setEditingLead] = useState<QuoteLead | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
   const router = useRouter();
+
+  // Create lead form state
+  const [newLeadForm, setNewLeadForm] = useState<Partial<QuoteLead>>({
+    name: "",
+    whatsapp: "",
+    email: "",
+    eventType: "Aniversário",
+    eventDate: "",
+    eventTime: "14:00",
+    durationHours: "4 horas",
+    city: "São Paulo",
+    address: "",
+    guestCount: "50 pessoas",
+    services: ["Pipoca Gourmet"],
+    message: "",
+  });
 
   useEffect(() => {
     if (!checkAdminSession()) {
@@ -22,8 +65,53 @@ export default function AdminOrcamentosPage() {
   }, [router]);
 
   const handleStatusChange = (leadId: string, newStatus: QuoteLead["status"]) => {
-    updateLeadStatus(leadId, newStatus);
+    const lead = leads.find((l) => l.id === leadId);
+    if (lead) {
+      updateLead({ ...lead, status: newStatus });
+      setLeads(getStoredLeads());
+    }
+  };
+
+  const handleDeleteLead = (leadId: string) => {
+    if (confirm("Deseja realmente excluir este registro de orçamento?")) {
+      deleteLead(leadId);
+      setLeads(getStoredLeads());
+    }
+  };
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newLeadForm.name || !newLeadForm.whatsapp) return;
+
+    addStoredLead({
+      name: newLeadForm.name || "",
+      whatsapp: newLeadForm.whatsapp || "",
+      email: newLeadForm.email,
+      eventType: newLeadForm.eventType || "Aniversário",
+      eventDate: newLeadForm.eventDate || "A definir",
+      eventTime: newLeadForm.eventTime || "14:00",
+      durationHours: newLeadForm.durationHours || "4 horas",
+      city: newLeadForm.city || "São Paulo",
+      address: newLeadForm.address || "",
+      guestCount: newLeadForm.guestCount || "50 pessoas",
+      services: newLeadForm.services || ["Pipoca Gourmet"],
+      message: newLeadForm.message || "Registrado manualmente pelo Painel Admin",
+    });
+
     setLeads(getStoredLeads());
+    setIsCreating(false);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLead) return;
+    updateLead(editingLead);
+    setLeads(getStoredLeads());
+    setEditingLead(null);
+    setSavedSuccess(true);
+    setTimeout(() => setSavedSuccess(false), 3000);
   };
 
   const filteredLeads = leads.filter((l) => {
@@ -50,10 +138,26 @@ export default function AdminOrcamentosPage() {
               <span className="text-xs font-bold text-rose-600 uppercase tracking-wider">
                 Gestão de Propostas
               </span>
-              <h1 className="text-3xl font-black text-slate-900">Histórico de Orçamentos Recebidos</h1>
+              <h1 className="text-3xl font-black text-slate-900">Histórico & Editor de Orçamentos</h1>
             </div>
           </div>
+
+          <Button
+            onClick={() => setIsCreating(true)}
+            variant="primary"
+            size="md"
+            icon={<Plus className="w-4 h-4" />}
+          >
+            Adicionar Orçamento Manual
+          </Button>
         </div>
+
+        {savedSuccess && (
+          <div className="my-6 p-4 rounded-2xl bg-emerald-100 border border-emerald-300 text-emerald-800 text-xs font-bold flex items-center gap-2">
+            <Check className="w-5 h-5 text-emerald-600" />
+            <span>Registro de proposta atualizado com sucesso!</span>
+          </div>
+        )}
 
         {/* Filter and Search */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 my-8 p-4 rounded-3xl bg-white border border-slate-200 shadow-sm">
@@ -111,6 +215,7 @@ export default function AdminOrcamentosPage() {
                     <MessageCircle className="w-4 h-4 text-emerald-500" />
                     {lead.whatsapp}
                   </span>
+                  {lead.email && <span>📧 {lead.email}</span>}
                   <span className="flex items-center gap-1">
                     <Calendar className="w-4 h-4 text-rose-400" />
                     Data: {lead.eventDate || "A definir"}
@@ -129,6 +234,12 @@ export default function AdminOrcamentosPage() {
                   <strong>Serviços solicitados:</strong> {lead.services.join(", ")}
                 </div>
 
+                {lead.address && (
+                  <div className="text-xs text-slate-500">
+                    📍 <strong>Endereço:</strong> {lead.address}
+                  </div>
+                )}
+
                 {lead.message && (
                   <p className="text-xs text-slate-500 italic bg-slate-50 p-3 rounded-xl border border-slate-100">
                     "{lead.message}"
@@ -136,22 +247,37 @@ export default function AdminOrcamentosPage() {
                 )}
               </div>
 
-              {/* Status Selector & WhatsApp Contact Button */}
+              {/* Controls */}
               <div className="flex flex-col sm:flex-row lg:flex-col items-stretch lg:items-end gap-3 shrink-0 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-slate-400 uppercase block">Status da Proposta:</label>
+                <div className="flex items-center gap-2">
                   <select
                     value={lead.status}
                     onChange={(e) =>
                       handleStatusChange(lead.id, e.target.value as QuoteLead["status"])
                     }
-                    className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-rose-500 cursor-pointer"
+                    className="px-3 py-2 rounded-xl bg-slate-100 border border-slate-200 text-xs font-bold text-slate-800 focus:outline-none cursor-pointer"
                   >
                     <option value="novo">Novo (Aguardando)</option>
                     <option value="em_contato">Em Contato</option>
                     <option value="enviado">Proposta Enviada</option>
                     <option value="fechado">Evento Fechado 🎉</option>
                   </select>
+
+                  <button
+                    onClick={() => setEditingLead(lead)}
+                    className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700"
+                    title="Editar Registro"
+                  >
+                    <Edit2 className="w-4 h-4" />
+                  </button>
+
+                  <button
+                    onClick={() => handleDeleteLead(lead.id)}
+                    className="p-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-600"
+                    title="Excluir Registro"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 </div>
 
                 <a
@@ -176,6 +302,230 @@ export default function AdminOrcamentosPage() {
           ))}
         </div>
       </div>
+
+      {/* Modal: Create Manual Lead */}
+      {isCreating && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h2 className="text-xl font-bold text-slate-900">Registrar Orçamento Manualmente</h2>
+              <button onClick={() => setIsCreating(false)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Nome do Cliente *</label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="Ex: João da Silva"
+                    value={newLeadForm.name}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, name: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">WhatsApp *</label>
+                  <input
+                    type="tel"
+                    required
+                    placeholder="(11) 99999-9999"
+                    value={newLeadForm.whatsapp}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, whatsapp: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Tipo de Evento</label>
+                  <select
+                    value={newLeadForm.eventType}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, eventType: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 cursor-pointer"
+                  >
+                    <option value="Aniversário">Aniversário</option>
+                    <option value="Festa Infantil">Festa Infantil</option>
+                    <option value="Corporativo">Corporativo</option>
+                    <option value="Casamento">Casamento</option>
+                    <option value="Formatura">Formatura</option>
+                    <option value="Outro">Outro</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Data do Evento</label>
+                  <input
+                    type="text"
+                    placeholder="25/10/2026"
+                    value={newLeadForm.eventDate}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, eventDate: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Cidade / Bairro</label>
+                  <input
+                    type="text"
+                    placeholder="São Paulo - Anália Franco"
+                    value={newLeadForm.city}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, city: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Quantidade de Convidados</label>
+                  <input
+                    type="text"
+                    placeholder="80 pessoas"
+                    value={newLeadForm.guestCount}
+                    onChange={(e) => setNewLeadForm({ ...newLeadForm, guestCount: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Observações / Detalhes</label>
+                <textarea
+                  rows={3}
+                  placeholder="Anotações do contato com o cliente..."
+                  value={newLeadForm.message}
+                  onChange={(e) => setNewLeadForm({ ...newLeadForm, message: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 resize-none"
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <Button type="button" onClick={() => setIsCreating(false)} variant="outline" size="md">
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary" size="md">
+                  Salvar Registro
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Edit Lead */}
+      {editingLead && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="relative w-full max-w-xl bg-white rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <h2 className="text-xl font-bold text-slate-900">Editar Orçamento: {editingLead.name}</h2>
+              <button onClick={() => setEditingLead(null)} className="p-2 rounded-xl text-slate-400 hover:bg-slate-100">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleEditSubmit} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Nome do Cliente</label>
+                  <input
+                    type="text"
+                    required
+                    value={editingLead.name}
+                    onChange={(e) => setEditingLead({ ...editingLead, name: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">WhatsApp</label>
+                  <input
+                    type="tel"
+                    required
+                    value={editingLead.whatsapp}
+                    onChange={(e) => setEditingLead({ ...editingLead, whatsapp: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Tipo de Evento</label>
+                  <input
+                    type="text"
+                    value={editingLead.eventType}
+                    onChange={(e) => setEditingLead({ ...editingLead, eventType: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Status</label>
+                  <select
+                    value={editingLead.status}
+                    onChange={(e) =>
+                      setEditingLead({ ...editingLead, status: e.target.value as any })
+                    }
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs font-bold text-slate-900 cursor-pointer"
+                  >
+                    <option value="novo">Novo (Aguardando)</option>
+                    <option value="em_contato">Em Contato</option>
+                    <option value="enviado">Proposta Enviada</option>
+                    <option value="fechado">Evento Fechado 🎉</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Cidade / Bairro</label>
+                  <input
+                    type="text"
+                    value={editingLead.city}
+                    onChange={(e) => setEditingLead({ ...editingLead, city: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">Quantidade de Convidados</label>
+                  <input
+                    type="text"
+                    value={editingLead.guestCount}
+                    onChange={(e) => setEditingLead({ ...editingLead, guestCount: e.target.value })}
+                    className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">Observações</label>
+                <textarea
+                  rows={3}
+                  value={editingLead.message || ""}
+                  onChange={(e) => setEditingLead({ ...editingLead, message: e.target.value })}
+                  className="w-full px-3.5 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-900 resize-none"
+                />
+              </div>
+
+              <div className="pt-4 flex justify-end gap-3">
+                <Button type="button" onClick={() => setEditingLead(null)} variant="outline" size="md">
+                  Cancelar
+                </Button>
+                <Button type="submit" variant="primary" size="md">
+                  Atualizar Orçamento
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
