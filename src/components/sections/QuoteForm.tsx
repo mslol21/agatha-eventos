@@ -4,7 +4,8 @@ import React, { useState } from "react";
 import { SectionTitle } from "@/components/ui/SectionTitle";
 import { Button } from "@/components/ui/Button";
 import { buildWhatsAppUrl, QuoteFormData } from "@/lib/whatsapp";
-import { Send, Sparkles, CheckCircle2, MessageCircle } from "lucide-react";
+import { fetchCepAddress, formatCep } from "@/lib/cep";
+import { Send, Sparkles, CheckCircle2, MessageCircle, MapPin, Loader2 } from "lucide-react";
 
 interface QuoteFormProps {
   defaultService?: string;
@@ -26,6 +27,15 @@ export const QuoteForm: React.FC<QuoteFormProps> = ({
     message: "",
   });
 
+  // CEP State
+  const [cep, setCep] = useState("");
+  const [street, setStreet] = useState("");
+  const [number, setNumber] = useState("");
+  const [complement, setComplement] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [loadingCep, setLoadingCep] = useState(false);
+  const [cepError, setCepError] = useState(false);
+
   const EVENT_OPTIONS = [
     "Corporativo",
     "Aniversário",
@@ -46,6 +56,27 @@ export const QuoteForm: React.FC<QuoteFormProps> = ({
     "Experiência Personalizada",
   ];
 
+  const handleCepChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatCep(e.target.value);
+    setCep(formatted);
+    setCepError(false);
+
+    const cleanDigits = formatted.replace(/\D/g, "");
+    if (cleanDigits.length === 8) {
+      setLoadingCep(true);
+      const data = await fetchCepAddress(cleanDigits);
+      setLoadingCep(false);
+      if (data) {
+        setStreet(data.logradouro);
+        setNeighborhood(data.bairro);
+        const cityState = `${data.localidade} - ${data.uf}`;
+        setFormData((prev) => ({ ...prev, city: cityState }));
+      } else {
+        setCepError(true);
+      }
+    }
+  };
+
   const handleServiceToggle = (serviceName: string) => {
     setFormData((prev) => {
       const exists = prev.services.includes(serviceName);
@@ -65,7 +96,22 @@ export const QuoteForm: React.FC<QuoteFormProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const url = buildWhatsAppUrl(formData);
+
+    const fullAddress = [
+      street ? `Rua: ${street}` : "",
+      number ? `Nº: ${number}` : "",
+      complement ? `Local: ${complement}` : "",
+      neighborhood ? `Bairro: ${neighborhood}` : "",
+      formData.city ? `Cidade/UF: ${formData.city}` : "",
+      cep ? `CEP: ${cep}` : "",
+    ]
+      .filter(Boolean)
+      .join(", ");
+
+    const url = buildWhatsAppUrl({
+      ...formData,
+      city: fullAddress || formData.city || "São Paulo e região",
+    });
     window.open(url, "_blank");
   };
 
@@ -147,33 +193,107 @@ export const QuoteForm: React.FC<QuoteFormProps> = ({
               />
             </div>
 
-            {/* Cidade */}
+            {/* Quantidade de convidados */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Cidade / Bairro
+                Convidados (Aprox.)
               </label>
               <input
                 type="text"
-                placeholder="Ex: São Paulo - Anália Franco"
-                value={formData.city}
-                onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                placeholder="Ex: 80 pessoas"
+                value={formData.guestCount}
+                onChange={(e) => setFormData({ ...formData, guestCount: e.target.value })}
                 className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-900 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-200 transition-all outline-none"
               />
             </div>
           </div>
 
-          {/* Quantidade aproximada de convidados */}
-          <div className="space-y-2">
-            <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider">
-              Quantidade de Convidados (Aproximada)
-            </label>
-            <input
-              type="text"
-              placeholder="Ex: 50 pessoas, 100 pessoas, 200+ pessoas"
-              value={formData.guestCount}
-              onChange={(e) => setFormData({ ...formData, guestCount: e.target.value })}
-              className="w-full px-4 py-3 rounded-2xl bg-white border border-slate-200 text-slate-900 text-sm focus:border-rose-500 focus:ring-2 focus:ring-rose-200 transition-all outline-none"
-            />
+          {/* CEP & Automatic Address Lookup Block */}
+          <div className="space-y-4 bg-white/90 p-5 sm:p-6 rounded-2xl border border-rose-200 shadow-xs">
+            <div className="flex items-center gap-2 text-rose-600 font-bold text-xs uppercase tracking-wider">
+              <MapPin className="w-4 h-4" />
+              <span>Localização do Evento (via CEP)</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1 sm:col-span-1">
+                <label className="block text-xs font-bold text-slate-800">CEP do Local *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Ex: 03314-000"
+                    value={cep}
+                    onChange={handleCepChange}
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:border-rose-500 outline-none"
+                  />
+                  {loadingCep && (
+                    <Loader2 className="w-4 h-4 text-rose-500 animate-spin absolute right-3 top-1/2 -translate-y-1/2" />
+                  )}
+                </div>
+                {cepError && (
+                  <span className="text-[10px] text-rose-600 font-semibold block pt-1">
+                    CEP não localizado. Digite o endereço abaixo.
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-1 sm:col-span-2">
+                <label className="block text-xs font-bold text-slate-800">Rua / Logradouro</label>
+                <input
+                  type="text"
+                  placeholder="Rua / Avenida"
+                  value={street}
+                  onChange={(e) => setStreet(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:border-rose-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-800">Número</label>
+                <input
+                  type="text"
+                  placeholder="Nº 100"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:border-rose-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-800">Bairro</label>
+                <input
+                  type="text"
+                  placeholder="Bairro"
+                  value={neighborhood}
+                  onChange={(e) => setNeighborhood(e.target.value)}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:border-rose-500 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="block text-xs font-bold text-slate-800">Cidade / UF</label>
+                <input
+                  type="text"
+                  placeholder="São Paulo - SP"
+                  value={formData.city}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:border-rose-500 outline-none"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <label className="block text-xs font-bold text-slate-800">Complemento / Nome do Buffet</label>
+              <input
+                type="text"
+                placeholder="Ex: Salão de Festas do Condomínio ou Buffet Infantil"
+                value={complement}
+                onChange={(e) => setComplement(e.target.value)}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 text-xs focus:border-rose-500 outline-none"
+              />
+            </div>
           </div>
 
           {/* Serviços de interesse */}
