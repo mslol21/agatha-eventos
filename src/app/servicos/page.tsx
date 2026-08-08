@@ -1,5 +1,4 @@
 import React from "react";
-import Metadata from "next";
 import { Services } from "@/components/sections/Services";
 import { AboutExperience } from "@/components/sections/AboutExperience";
 import { QuoteForm } from "@/components/sections/QuoteForm";
@@ -14,8 +13,8 @@ export const metadata = {
 
 export default function ServicosPage() {
   return (
-    <div className="pt-28 pb-12">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="pt-32 sm:pt-36 pb-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
         <SectionTitle
           badge="Nossas Estações Gastronômicas"
           title="Carrinhos Gourmet & Sabores Inesquecíveis"
