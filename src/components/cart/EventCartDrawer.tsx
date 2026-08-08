@@ -5,6 +5,7 @@ import Image from "next/image";
 import { useEventCart } from "@/context/EventCartContext";
 import { WHATSAPP_NUMBER } from "@/lib/whatsapp";
 import { fetchCepAddress, formatCep } from "@/lib/cep";
+import { PopcornCartIcon } from "@/components/ui/PopcornCartIcon";
 import {
   X,
   Trash2,
@@ -141,11 +142,11 @@ Aguardando atendimento para confirmar a disponibilidade da data e proposta ofici
           {/* Header */}
           <div className="p-5 sm:p-6 bg-slate-900 text-white flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shadow-md">
-                <ShoppingBag className="w-5 h-5" />
+              <div className="w-10 h-10 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-white flex items-center justify-center shadow-md">
+                <PopcornCartIcon className="w-6 h-6" />
               </div>
               <div>
-                <h2 className="font-extrabold text-base sm:text-lg">Carrinho de Evento</h2>
+                <h2 className="font-extrabold text-base sm:text-lg">Carrinho Gourmet Agatha</h2>
                 <span className="text-xs text-rose-300">
                   {cartItems.length} carrinho(s) selecionado(s)
                 </span>
